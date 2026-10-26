@@ -1,0 +1,5 @@
+target/
+.idea/
+booking-service/users.txt
+
+**/dk/via/sep3/generated/
