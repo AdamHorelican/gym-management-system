@@ -55,7 +55,7 @@ Sorted by importance, so 1 is the most important.
 
 ## Architecture
 
-![System architecture](docs/architecture.png)
+![System architecture](docs/architecture-diagram.png)
 
 - **Blazor website (C#)** - what the users see
 - **API gateway (Java)** - checks the login and sends requests to the right service
