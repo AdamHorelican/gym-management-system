@@ -158,6 +158,8 @@ Sorted by importance, so 1 is the most important.
 
 ## Architecture
 
+![Architecture](docs/architecture-diagram.png)
+
 - **Website (Blazor, C#):** The user interface for all three roles. It talks only to the API gateway, with REST and a login token.
 - **API Gateway (Java, Spring Boot):** One entry point for the website. It checks the token and the role, and sends the request to the right service with gRPC.
 - **Booking Service (Java):** Users, memberships, class types, classes, bookings, waiting lists, check-in and statistics.
