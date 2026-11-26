@@ -1,0 +1,70 @@
+@page "/admin/classes"
+@inject IGymService Gym
+
+@{
+    var all = Gym.GetAllClasses().Where(c => c.Start >= DateTime.Today).ToList();
+    var shown = all.Where(c => (typeFilter == 0 || c.TypeId == typeFilter)
+                               && (trainerFilter == "" || c.TrainerName == trainerFilter)
+                               && (statusFilter == "" || StatusOf(c) == statusFilter)).ToList();
+}
+
+<div class="row between">
+    <h1>All classes</h1>
+    <a class="btn btn-dark" href="/admin/classes/new">+ Schedule class</a>
+</div>
+
+<div class="row filters">
+    <div>
+        <label>Class type</label>
+        <select @bind="typeFilter">
+            <option value="0">All types</option>
+            @foreach (var t in Gym.GetClassTypes()) { <option value="@t.Id">@t.Name</option> }
+        </select>
+    </div>
+    <div>
+        <label>Trainer</label>
+        <select @bind="trainerFilter">
+            <option value="">All trainers</option>
+            @foreach (var n in all.Select(c => c.TrainerName).Distinct()) { <option value="@n">@n</option> }
+        </select>
+    </div>
+    <div>
+        <label>Status</label>
+        <select @bind="statusFilter">
+            <option value="">All</option><option>Open</option><option>Full</option><option>Cancelled</option>
+        </select>
+    </div>
+</div>
+
+<table>
+    <thead><tr><th>Date</th><th>Time</th><th>Class</th><th>Trainer</th><th>Booked</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>
+    @foreach (var c in shown)
+    {
+        <tr>
+            <td>@c.Start.ToString("ddd d MMM")</td>
+            <td>@($"{c.Start:HH:mm}–{c.End:HH:mm}")</td>
+            <td>@c.TypeName</td>
+            <td>@c.TrainerName</td>
+            <td>@($"{c.Bookings.Count}/{c.Capacity}")</td>
+            <td><StatusTag Text="@StatusOf(c)" /></td>
+            <td>
+                @if (!c.Cancelled)
+                {
+                    <a class="btn btn-sm" href="/admin/classes/@c.Id/edit">Edit</a>
+                    <button class="btn btn-sm" @onclick="() => Gym.CancelClass(c.Id)">Cancel</button>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@code {
+    private int typeFilter;
+    private string trainerFilter = "";
+    private string statusFilter = "";
+
+    private static string StatusOf(GymClass c) =>
+        c.Cancelled ? "Cancelled" : c.Open <= 0 ? "Full" : "Open";
+}

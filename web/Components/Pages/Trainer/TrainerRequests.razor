@@ -1,0 +1,61 @@
+@page "/trainer/requests"
+@inject AuthState Auth
+@inject IGymService Gym
+@inject NavigationManager Nav
+
+@{
+    var list = Gym.GetRequestsForTrainer(Auth.User!.Id);
+    var sel = list.FirstOrDefault(r => r.Id == selectedId) ?? list.FirstOrDefault();
+}
+
+<h1>Plan requests</h1>
+
+<table>
+    <thead><tr><th>Member</th><th>Goal</th><th>Level</th><th>Days</th><th>Received</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody>
+    @foreach (var r in list)
+    {
+        <tr class="@(sel?.Id == r.Id ? "sel" : "")" style="cursor:pointer" @onclick="() => selectedId = r.Id">
+            <td>@r.MemberName</td>
+            <td>@r.Goal</td>
+            <td>@r.Level</td>
+            <td>@r.DaysPerWeek</td>
+            <td>@r.Received.ToString("d MMM")</td>
+            <td><StatusTag Text="@r.Status" /></td>
+            <td><button class="btn btn-sm" @onclick="() => OpenPlan(r)" @onclick:stopPropagation="true">@ActionText(r)</button></td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@if (list.Count == 0)
+{
+    <p class="muted">No plan requests are assigned to you.</p>
+}
+
+@if (sel != null)
+{
+    <div class="card" style="margin-top:16px">
+        <h2>Request from @sel.MemberName</h2>
+        <div class="grid2">
+            <div><label>Goal</label>@sel.Goal</div>
+            <div><label>Experience level</label>@sel.Level</div>
+            <div><label>Days per week</label>@sel.DaysPerWeek</div>
+            <div><label>Injuries or limitations</label>@(string.IsNullOrWhiteSpace(sel.Limitations) ? "-" : sel.Limitations)</div>
+            <div><label>Other notes</label>@(string.IsNullOrWhiteSpace(sel.Notes) ? "-" : sel.Notes)</div>
+        </div>
+        <p style="text-align:right"><button class="btn btn-dark" @onclick="() => OpenPlan(sel)">@ActionText(sel)</button></p>
+    </div>
+}
+
+@code {
+    private int selectedId;
+
+    private static string ActionText(PlanRequest r) => r.Status == "Plan ready" ? "View" : "Create plan";
+
+    private void OpenPlan(PlanRequest r)
+    {
+        var plan = r.Status == "Plan ready" ? Gym.GetPlanForRequest(r.Id) : null;
+        Nav.NavigateTo(plan != null ? $"/trainer/plans?plan={plan.Id}" : $"/trainer/plans?request={r.Id}");
+    }
+}

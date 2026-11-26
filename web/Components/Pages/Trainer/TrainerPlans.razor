@@ -1,0 +1,67 @@
+@page "/trainer/plans"
+@inject AuthState Auth
+@inject IGymService Gym
+
+@{
+    var me = Auth.User!;
+    var mine = Gym.GetPlans().Where(p => p.TrainerId == me.Id
+        && (search == "" || p.MemberName.Contains(search, StringComparison.OrdinalIgnoreCase))).ToList();
+}
+
+<h1>Workout plans</h1>
+
+<div class="cols" style="grid-template-columns:1fr 3fr">
+    <div>
+        <label>Search member</label>
+        <input placeholder="Name" @bind="search" @bind:event="oninput" />
+        <p><button class="btn btn-dark wide" @onclick="NewPlan">+ New plan</button></p>
+        @foreach (var p in mine)
+        {
+            <div class="card @(selected?.Id == p.Id ? "soft" : "")" style="margin-bottom:8px;cursor:pointer" @onclick="() => selected = p">
+                <b>@(string.IsNullOrWhiteSpace(p.Title) ? "(untitled)" : p.Title)</b>
+                <div class="muted small">@p.MemberName · updated @p.Updated.ToString("d MMM")</div>
+            </div>
+        }
+    </div>
+    <div>
+        @if (selected != null)
+        {
+            <PlanEditor Plan="selected" Admin="false" OnSaved="Saved" OnDiscard="Discard" />
+        }
+        else
+        {
+            <p class="muted">Choose a plan on the left, open a request in Plan requests, or start a new plan.</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, SupplyParameterFromQuery(Name = "plan")] public int? PlanId { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "request")] public int? RequestId { get; set; }
+
+    private WorkoutPlan? selected;
+    private int? lastPlanId;
+    private int? lastRequestId;
+    private string search = "";
+
+    protected override void OnParametersSet()
+    {
+        if (PlanId != lastPlanId)
+        {
+            lastPlanId = PlanId;
+            if (PlanId is int id) selected = Gym.GetPlan(id);
+        }
+        if (RequestId != lastRequestId)
+        {
+            lastRequestId = RequestId;
+            if (RequestId is int rid) selected = Gym.NewPlanFromRequest(rid, Auth.User!);
+        }
+    }
+
+    private void NewPlan() =>
+        selected = new WorkoutPlan { TrainerId = Auth.User!.Id, TrainerName = Auth.User.Name };
+
+    private void Saved(int id) => selected = Gym.GetPlan(id);
+
+    private void Discard() => selected = null;
+}

@@ -1,0 +1,101 @@
+@page "/admin/users/new"
+@page "/admin/users/{Id:int}/edit"
+@inject IUserService Users
+@inject NavigationManager Nav
+
+<p><a href="/admin/users">‹ Back to users</a></p>
+<h1>@(Id == null ? "Create" : "Edit") @(role == Role.Trainer ? "trainer" : "member")</h1>
+
+<div class="card" style="max-width:700px">
+    @if (Id == null)
+    {
+        <div class="tabs">
+            <button class="btn @(role == Role.Member ? "on" : "")" @onclick="() => role = Role.Member">Member</button>
+            <button class="btn @(role == Role.Trainer ? "on" : "")" @onclick="() => role = Role.Trainer">Trainer</button>
+        </div>
+    }
+    <div class="grid2">
+        <div><label>First name</label><input @bind="first" /></div>
+        <div><label>Last name</label><input @bind="last" /></div>
+        <div><label>Email</label><input type="email" placeholder="name@example.com" @bind="email" /></div>
+        <div><label>Phone number</label><input @bind="phone" /></div>
+        @if (role == Role.Member)
+        {
+            <div><label>Date of birth</label><input type="date" @bind="dob" /></div>
+            <div><label>Membership ends</label><input type="date" @bind="ends" /></div>
+        }
+        @if (Id == null)
+        {
+            <div><label>Temporary password</label><input type="password" @bind="tempPassword" /></div>
+        }
+        @if (role == Role.Member && Id == null)
+        {
+            <div><label>&nbsp;</label><label style="color:inherit"><input type="checkbox" @bind="payment" /> Payment received</label></div>
+        }
+        @if (role == Role.Trainer)
+        {
+            <div><label>Status</label>
+                <select @bind="active"><option value="true">Active</option><option value="false">Inactive</option></select></div>
+        }
+    </div>
+    <p class="muted small">@(role == Role.Member ? "Only for people who have paid." : "Trainers do not need a membership.")</p>
+    @if (error != null) { <p class="error">@error</p> }
+    <div style="text-align:right">
+        <button class="btn" @onclick="Discard">Discard</button>
+        <button class="btn btn-dark" @onclick="Save">Save account</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "role")] public string? RoleName { get; set; }
+
+    private Role role = Role.Member;
+    private string first = "", last = "", email = "", phone = "", tempPassword = "";
+    private DateTime? dob;
+    private DateTime? ends = DateTime.Today.AddMonths(1);
+    private bool payment, active = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id is int id)
+        {
+            var u = (await Users.GetUsersAsync()).FirstOrDefault(x => x.Id == id);
+            if (u == null) return;
+            role = u.Role;
+            first = u.FirstName; last = u.LastName; email = u.Email; phone = u.Phone;
+            dob = u.DateOfBirth; ends = u.MembershipEnds; active = u.Active;
+        }
+        else if (RoleName == "trainer")
+        {
+            role = Role.Trainer;
+        }
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(email))
+        {
+            error = "First name and email are required.";
+            return;
+        }
+        if (Id == null && role == Role.Member && !payment)
+        {
+            error = "Confirm that payment was received before creating a member.";
+            return;
+        }
+
+        // The temporary password is not sent anywhere yet: the gateway has no authentication.
+        var u = new AppUser
+        {
+            Id = Id ?? 0, FirstName = first.Trim(), LastName = last.Trim(), Email = email.Trim(), Phone = phone,
+            Role = role, DateOfBirth = role == Role.Member ? dob : null,
+            MembershipEnds = role == Role.Member ? ends : null, Active = active
+        };
+        error = await Users.SaveUserAsync(u);
+        if (error == null) Nav.NavigateTo("/admin/users");
+    }
+
+    private void Discard() => Nav.NavigateTo("/admin/users");
+}

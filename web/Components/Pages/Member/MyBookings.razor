@@ -1,0 +1,87 @@
+@page "/my-bookings"
+@inject AuthState Auth
+@inject IGymService Gym
+
+@{
+    var me = Auth.User!;
+    var bookings = Gym.BookingsFor(me.Id);
+    var waiting = Gym.WaitingFor(me.Id);
+    var left = Rules.WeeklyLimit - Gym.ClassesUsed(me.Id, Rules.WeekStart(DateTime.Today));
+}
+
+<div class="row between">
+    <h1>My bookings</h1>
+    <span class="muted">Classes left this week: @left of @Rules.WeeklyLimit</span>
+</div>
+
+@if (message != null)
+{
+    <div class="banner"><div class="banner-main"><BannerIcon /><span>@message</span></div></div>
+}
+
+<h2>Bookings</h2>
+<table class="aligned">
+    <thead><tr><th>Class</th><th>Date</th><th>Time</th><th>Trainer</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody>
+    @foreach (var c in bookings)
+    {
+        var b = c.Bookings.First(x => x.MemberId == me.Id);
+        <tr>
+            <td><a href="/classes/@c.Id">@c.TypeName</a></td>
+            <td>@c.Start.ToString("ddd d MMM")</td>
+            <td>@($"{c.Start:HH:mm}–{c.End:HH:mm}")</td>
+            <td>@c.TrainerName</td>
+            <td><StatusTag Text="@(b.CheckedIn ? "Attended" : c.End < DateTime.Now ? "Missed" : "Booked")" /></td>
+            <td>
+                @if (!b.CheckedIn && c.End >= DateTime.Now)
+                {
+                    <button class="btn btn-sm" disabled="@(!Rules.CanCheckIn(c))"
+                            title="Check-in opens @Rules.CheckInOpensMinutes minutes before the class starts"
+                            @onclick="() => CheckIn(c)">Check in</button>
+                }
+                @if (c.Start > DateTime.Now)
+                {
+                    <button class="btn btn-sm" @onclick="() => Cancel(c)">Cancel</button>
+                }
+            </td>
+        </tr>
+    }
+    @if (bookings.Count == 0)
+    {
+        <tr><td colspan="6" class="muted">You have no bookings.</td></tr>
+    }
+    </tbody>
+</table>
+
+<h2>Waiting lists</h2>
+<table class="aligned">
+    <thead><tr><th>Class</th><th>Date</th><th>Time</th><th>Trainer</th><th>Position</th><th>Action</th></tr></thead>
+    <tbody>
+    @foreach (var c in waiting)
+    {
+        <tr>
+            <td><a href="/classes/@c.Id">@c.TypeName</a></td>
+            <td>@c.Start.ToString("ddd d MMM")</td>
+            <td>@($"{c.Start:HH:mm}–{c.End:HH:mm}")</td>
+            <td>@c.TrainerName</td>
+            <td><StatusTag Text="@("#" + Gym.WaitingPosition(me.Id, c) + " of " + c.Waiting.Count)" /></td>
+            <td><button class="btn btn-sm" @onclick="() => Leave(c)">Leave list</button></td>
+        </tr>
+    }
+    @if (waiting.Count == 0)
+    {
+        <tr><td colspan="6" class="muted">You are not on any waiting list.</td></tr>
+    }
+    </tbody>
+</table>
+<p class="muted small">If a place becomes free more than @Rules.WaitingCloseHours hours before the class, the first person on the list
+    is moved into the class automatically and gets a notification in the app and by email.
+    Check-in opens @Rules.CheckInOpensMinutes minutes before a class starts.</p>
+
+@code {
+    private string? message;
+
+    private void CheckIn(GymClass c) => message = Gym.CheckIn(Auth.User!.Id, c.Id) ?? $"Checked in to {c.TypeName}.";
+    private void Cancel(GymClass c) => message = Gym.CancelBooking(Auth.User!.Id, c.Id) ?? $"Booking for {c.TypeName} cancelled.";
+    private void Leave(GymClass c) { Gym.LeaveWaiting(Auth.User!.Id, c.Id); message = "You left the waiting list."; }
+}

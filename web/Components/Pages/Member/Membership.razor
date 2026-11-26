@@ -1,0 +1,76 @@
+@page "/membership"
+@inject AuthState Auth
+@inject IGymService Gym
+@inject IUserService Users
+
+@{
+    var me = Auth.User!;
+    var week = Rules.WeekStart(DateTime.Today);
+    var used = Gym.ClassesUsed(me.Id, week);
+    var active = me.MembershipEnds is DateTime e && e >= DateTime.Today;
+    var thisWeek = Gym.GetClasses(week, week.AddDays(7)).Where(c => !c.Cancelled && c.Bookings.Any(b => b.MemberId == me.Id)).ToList();
+}
+
+<h1>My membership</h1>
+
+@if (message != null)
+{
+    <div class="banner"><div class="banner-main"><BannerIcon /><span>@message</span></div></div>
+}
+
+<div class="cols-eq">
+    <div class="card">
+        <div class="row between"><span>Membership</span><StatusTag Text="@(active ? "Active" : "Ended")" /></div>
+        <label>Membership ends</label>
+        <div class="big">@(me.MembershipEnds?.ToString("d MMMM yyyy") ?? "-")</div>
+        <label>Included</label>
+        <div>Normal gym area<br />@Rules.WeeklyLimit classes per week (Monday to Sunday)</div>
+    </div>
+    <div class="card">
+        <label>Classes this week</label>
+        <div class="muted small">Mon @week.ToString("d MMM") – Sun @week.AddDays(6).ToString("d MMM")</div>
+        <div class="big">@(Rules.WeeklyLimit - used) of @Rules.WeeklyLimit left</div>
+        <div>
+            @for (var i = 0; i < Rules.WeeklyLimit; i++)
+            {
+                var fill = i < used ? "#0F766E" : "#ffffff";
+                <span style="display:inline-block;width:44px;height:28px;border-radius:8px;border:2px solid #0F766E;margin-right:8px;background:@fill"></span>
+            }
+            <span class="muted small">@used used, @(Rules.WeeklyLimit - used) left</span>
+        </div>
+        <label>Booked this week</label>
+        @if (thisWeek.Count == 0) { <span class="muted">Nothing booked yet.</span> }
+        @foreach (var c in thisWeek)
+        {
+            <div>@c.TypeName, @c.Start.ToString("ddd d MMM"), @c.Start.ToString("HH:mm")</div>
+        }
+    </div>
+</div>
+
+<div class="panel-dark">
+    <div>
+        <h2>Extend membership</h2>
+        <p>Adds 1 month. When a membership has ended, you can't book classes or join waiting lists.</p>
+        <p class="small faint">Demo payment: no real money is charged.</p>
+    </div>
+    <button class="btn btn-dark btn-lg" @onclick="Extend">Pay and extend</button>
+</div>
+
+@code {
+    private string? message;
+
+    private async Task Extend()
+    {
+        var me = Auth.User!;
+        var from = me.MembershipEnds is DateTime e && e >= DateTime.Today ? e : DateTime.Today;
+        var updated = me.Copy();
+        updated.MembershipEnds = from.AddMonths(1);
+        var err = await Users.SaveUserAsync(updated);
+        if (err == null)
+        {
+            Auth.Refresh(updated);
+            message = $"Membership extended to {updated.MembershipEnds:d MMMM yyyy}.";
+        }
+        else message = err;
+    }
+}

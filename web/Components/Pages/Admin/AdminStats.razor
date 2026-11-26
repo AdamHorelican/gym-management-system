@@ -1,0 +1,59 @@
+@page "/admin/stats"
+@inject IGymService Gym
+
+@{
+    var stats = Gym.GetStats();
+    var maxBooked = Math.Max(1, stats.Max(s => s.Booked));
+    var totalBooked = stats.Sum(s => s.Booked);
+    var totalAttended = stats.Sum(s => s.Attended);
+    var rate = totalBooked == 0 ? 0 : (int)Math.Round(100.0 * totalAttended / totalBooked);
+    var avgAge = totalBooked == 0 ? 0 : (int)Math.Round(stats.Sum(s => (double)s.AvgAge * s.Booked) / totalBooked);
+}
+
+<div class="row between">
+    <h1>Statistics</h1>
+    <div style="min-width:180px">
+        <label>Period</label>
+        <select><option>November 2026</option><option>October 2026</option><option>September 2026</option></select>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="card"><span class="muted">Most popular</span><b>@stats.OrderByDescending(s => s.Booked).First().Name</b></div>
+    <div class="card"><span class="muted">Bookings</span><b>@totalBooked</b></div>
+    <div class="card"><span class="muted">Attendance rate</span><b>@rate%</b></div>
+    <div class="card"><span class="muted">Average age</span><b>@avgAge</b></div>
+</div>
+
+<div class="cols-eq">
+    <div class="card">
+        <b>Booked and attended by class type</b>
+        <div class="muted small">□ Booked  ■ Attended</div>
+        <div class="chart">
+            @foreach (var s in stats)
+            {
+                <div class="grp">
+                    <div class="b1" style="height:@(150 * s.Booked / maxBooked)px" title="Booked @s.Booked"></div>
+                    <div class="b2" style="height:@(150 * s.Attended / maxBooked)px" title="Attended @s.Attended"></div>
+                </div>
+            }
+        </div>
+        <div class="chart-labels">
+            @foreach (var s in stats) { <span>@s.Name</span> }
+        </div>
+    </div>
+    <div class="card">
+        <b>Per class type, most popular first</b>
+        <table style="margin-top:8px">
+            <thead><tr><th>Class</th><th>Bookings</th><th>Rate</th><th>Full</th><th>Age</th></tr></thead>
+            <tbody>
+            @foreach (var s in stats.OrderByDescending(x => x.Booked))
+            {
+                <tr><td>@s.Name</td><td>@s.Booked</td><td>@s.Rate%</td><td>@s.FullPercent%</td><td>@s.AvgAge</td></tr>
+            }
+            </tbody>
+        </table>
+        <p class="muted small">Rate = checked in / booked. Full = average share of places booked. Age = average age of participants.</p>
+    </div>
+</div>
+<p class="muted small">Sample data. These numbers become real when the statistics service exists.</p>

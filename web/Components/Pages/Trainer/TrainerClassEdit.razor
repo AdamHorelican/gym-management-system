@@ -1,0 +1,10 @@
+@page "/trainer/classes/new"
+@page "/trainer/classes/{Id:int}/edit"
+
+<p><a href="/trainer/classes">‹ Back to my classes</a></p>
+<h1>Schedule / edit class</h1>
+<ClassEditor @key="Id" ClassId="Id" Admin="false" BackUrl="/trainer/classes" />
+
+@code {
+    [Parameter] public int? Id { get; set; }
+}

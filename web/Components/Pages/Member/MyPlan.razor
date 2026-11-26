@@ -1,0 +1,46 @@
+@page "/my-plan"
+@inject AuthState Auth
+@inject IGymService Gym
+@inject IJSRuntime JS
+
+@{ var plan = Gym.GetPlanForMember(Auth.User!.Id); }
+
+@if (plan == null)
+{
+    <h1>My workout plan</h1>
+    <div class="card">
+        <p>You have no workout plan yet.</p>
+        <a class="btn btn-dark" href="/plan-request">Request a plan</a>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="row between">
+            <div>
+                <h1>@plan.Title</h1>
+                <div class="muted">Goal: @plan.Goal<br />Trainer: @plan.TrainerName | Updated @plan.Updated.ToString("d MMM yyyy")</div>
+            </div>
+            <div class="no-print">
+                <a class="btn" href="/plan-request">Request new plan</a>
+                <button class="btn btn-dark" @onclick="Print">Download PDF</button>
+            </div>
+        </div>
+        <table style="margin-top:14px">
+            <thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Weight</th><th>Rest</th><th>Notes</th></tr></thead>
+            <tbody>
+            @foreach (var ex in plan.Exercises)
+            {
+                <tr><td>@ex.Name</td><td>@ex.Sets</td><td>@ex.Reps</td><td>@ex.Weight</td><td>@ex.Rest</td><td>@ex.Notes</td></tr>
+            }
+            </tbody>
+        </table>
+        <label>Notes from your trainer</label>
+        <div class="card soft">@plan.Notes</div>
+    </div>
+}
+
+@code {
+    // "Download PDF" opens the browser print dialog; choose "Save as PDF" there.
+    private async Task Print() => await JS.InvokeVoidAsync("window.print");
+}

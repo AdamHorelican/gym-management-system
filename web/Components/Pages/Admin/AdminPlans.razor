@@ -1,0 +1,46 @@
+@page "/admin/plans"
+@inject IGymService Gym
+
+@{
+    var all = Gym.GetPlans();
+    var shown = all.Where(p => (trainerFilter == "" || p.TrainerName == trainerFilter)
+                               && (search == "" || p.MemberName.Contains(search, StringComparison.OrdinalIgnoreCase))).ToList();
+}
+
+<h1>All workout plans</h1>
+
+<div class="row filters">
+    <div>
+        <label>Trainer</label>
+        <select @bind="trainerFilter">
+            <option value="">All trainers</option>
+            @foreach (var n in all.Select(p => p.TrainerName).Distinct()) { <option value="@n">@n</option> }
+        </select>
+    </div>
+    <div class="grow">
+        <label>Search by member</label>
+        <input @bind="search" @bind:event="oninput" />
+    </div>
+</div>
+
+<table>
+    <thead><tr><th>Member</th><th>Plan</th><th>Trainer</th><th>Updated</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody>
+    @foreach (var p in shown)
+    {
+        <tr>
+            <td>@p.MemberName</td>
+            <td>@p.Title</td>
+            <td>@p.TrainerName</td>
+            <td>@p.Updated.ToString("d MMM")</td>
+            <td><StatusTag Text="@p.Status" /></td>
+            <td><a class="btn btn-sm" href="/admin/plans/@p.Id">Edit</a></td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@code {
+    private string trainerFilter = "";
+    private string search = "";
+}

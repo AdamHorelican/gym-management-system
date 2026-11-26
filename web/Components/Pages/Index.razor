@@ -1,0 +1,9 @@
+@page "/"
+@layout EmptyLayout
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+@code {
+    protected override void OnInitialized() =>
+        Nav.NavigateTo(Auth.IsLoggedIn ? Auth.Home : "/login", replace: true);
+}

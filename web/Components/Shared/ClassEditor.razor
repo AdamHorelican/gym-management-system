@@ -1,0 +1,104 @@
+@inject IGymService Gym
+@inject IUserService Users
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<div class="card" style="max-width:700px">
+    <div class="grid2">
+        <div>
+            <label>Class type</label>
+            <select @bind="typeId">
+                @foreach (var t in types) { <option value="@t.Id">@t.Name</option> }
+            </select>
+        </div>
+        <div><label>Capacity</label><input type="number" min="1" max="@Rules.MaxCapacity" @bind="capacity" /></div>
+        <div><label>Date</label><input type="date" @bind="date" /></div>
+        <div>
+            <label>Trainer</label>
+            @if (Admin)
+            {
+                <select @bind="trainerId">
+                    @foreach (var t in trainers) { <option value="@t.Id">@t.Name</option> }
+                </select>
+            }
+            else
+            {
+                <input value="@(Auth.User!.Name)" disabled />
+            }
+        </div>
+        <div><label>Start time</label><input type="time" @bind="startTime" /></div>
+        <div><label>End time</label><input type="time" @bind="endTime" /></div>
+    </div>
+    <p class="muted small">If you cancel, all booked members are notified in the app and by email.</p>
+    @if (error != null) { <p class="error">@error</p> }
+    <div class="row between">
+        @if (existing) { <button class="btn" @onclick="CancelClass">Cancel this class</button> } else { <span></span> }
+        <div>
+            <button class="btn" @onclick="Discard">Discard</button>
+            <button class="btn btn-dark" @onclick="Save">Save class</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int? ClassId { get; set; }
+    [Parameter] public bool Admin { get; set; }
+    [Parameter] public string BackUrl { get; set; } = "/";
+
+    private List<ClassType> types = new();
+    private List<AppUser> trainers = new();
+    private int typeId, capacity = 14, trainerId;
+    private DateTime date = DateTime.Today.AddDays(1);
+    private TimeOnly startTime = new(18, 30), endTime = new(19, 30);
+    private string? error;
+    private bool existing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        types = Gym.GetClassTypes().Where(t => t.Active).ToList();
+        trainers = (await Users.GetUsersAsync()).Where(u => u.Role == Role.Trainer && u.Active).ToList();
+
+        var c = ClassId is int id ? Gym.GetClass(id) : null;
+        if (c != null)
+        {
+            existing = true;
+            typeId = c.TypeId;
+            capacity = c.Capacity;
+            date = c.Start.Date;
+            startTime = TimeOnly.FromDateTime(c.Start);
+            endTime = TimeOnly.FromDateTime(c.End);
+            trainerId = c.TrainerId;
+            if (types.All(t => t.Id != typeId))
+            {
+                var old = Gym.GetClassTypes().FirstOrDefault(t => t.Id == typeId);
+                if (old != null) types.Add(old);
+            }
+        }
+        else
+        {
+            typeId = types.FirstOrDefault()?.Id ?? 0;
+            trainerId = Admin ? trainers.FirstOrDefault()?.Id ?? 0 : Auth.User!.Id;
+        }
+    }
+
+    private void Save()
+    {
+        var tId = Admin ? trainerId : Auth.User!.Id;
+        var tName = Admin ? trainers.FirstOrDefault(t => t.Id == trainerId)?.Name ?? "" : Auth.User!.Name;
+        var gc = new GymClass
+        {
+            Id = ClassId ?? 0, TypeId = typeId, Capacity = capacity,
+            Start = date.Date + startTime.ToTimeSpan(), End = date.Date + endTime.ToTimeSpan(), TrainerId = tId, TrainerName = tName
+        };
+        error = Gym.SaveClass(gc);
+        if (error == null) Nav.NavigateTo(BackUrl);
+    }
+
+    private void CancelClass()
+    {
+        if (ClassId is int id) Gym.CancelClass(id);
+        Nav.NavigateTo(BackUrl);
+    }
+
+    private void Discard() => Nav.NavigateTo(BackUrl);
+}

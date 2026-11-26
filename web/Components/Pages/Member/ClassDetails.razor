@@ -1,0 +1,57 @@
+@page "/classes/{Id:int}"
+@inject AuthState Auth
+@inject IGymService Gym
+
+@if (c == null)
+{
+    <p>Class not found. <a href="/classes">Back to classes</a></p>
+}
+else
+{
+    var me = Auth.User!;
+    var type = Gym.GetClassTypes().FirstOrDefault(t => t.Id == c.TypeId);
+    var left = Rules.WeeklyLimit - Gym.ClassesUsed(me.Id, Rules.WeekStart(c.Start));
+    var pct = c.Capacity == 0 ? 0 : 100 * c.Bookings.Count / c.Capacity;
+
+    <p><a href="/classes">‹ Back to classes</a></p>
+    <h1>@c.TypeName @if (c.Cancelled) { <StatusTag Text="Cancelled" /> } else if (c.Open <= 0) { <StatusTag Text="Class full" /> }</h1>
+
+    @if (message != null)
+    {
+        <div class="banner"><div class="banner-main"><BannerIcon /><span>@message</span></div></div>
+    }
+
+    <div class="cols">
+        <div class="card">
+            <div class="grid2">
+                <div><label>Date</label>@c.Start.ToString("dddd d MMMM yyyy")</div>
+                <div><label>Time</label>@($"{c.Start:HH:mm}–{c.End:HH:mm}")</div>
+                <div><label>Trainer</label>@c.TrainerName</div>
+            </div>
+            <label>About this class</label>
+            <p>@(type?.Description ?? "")</p>
+        </div>
+        <div class="card">
+            <label>Places</label>
+            <div class="big">@(c.Open <= 0 ? 0 : c.Open) of @c.Capacity free</div>
+            <div class="bar"><div class="fill" style="width:@(pct)%"></div></div>
+            @if (c.Waiting.Count > 0)
+            {
+                <p class="muted">Waiting list: @c.Waiting.Count members</p>
+            }
+            <ClassActions Class="c" OnMessage="Show" />
+            <p class="muted small">If a place becomes free more than @Rules.WaitingCloseHours hours before the class, the first person on the list is moved into the class automatically. The waiting list closes @Rules.WaitingCloseHours hours before the class.</p>
+            <p class="muted small">You have @left of @Rules.WeeklyLimit classes left this week.</p>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private GymClass? c;
+    private string? message;
+
+    protected override void OnParametersSet() => c = Gym.GetClass(Id);
+
+    private void Show(string text) => message = text;
+}
