@@ -1,0 +1,101 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AuthState Auth
+@inject IGymService Gym
+@inject NavigationManager Nav
+
+@if (Auth.IsLoggedIn && Allowed())
+{
+    <nav class="topbar" aria-label="Main">
+        <div class="topbar-inner">
+            <a class="brand" href="@Auth.Home">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FB923C" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6.5 7v10M3.5 9.5v5M17.5 7v10M20.5 9.5v5M6.5 12h11"></path></svg>
+                Gym Management
+            </a>
+            <div class="navlinks">
+                @foreach (var (href, label) in Links())
+                {
+                    <NavLink href="@href" class="navlink">@label</NavLink>
+                }
+            </div>
+            <div class="topbar-right">
+                @if (Auth.User!.Role == Role.Member)
+                {
+                    var unread = Gym.UnreadCount(Auth.User.Id);
+                    <NavLink href="/notifications" class="bell" aria-label="Notifications">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+                        @if (unread > 0)
+                        {
+                            <span class="bell-badge">@unread</span>
+                        }
+                    </NavLink>
+                }
+                <span class="avatar" aria-hidden="true">@Initials()</span>
+                <span class="who">@(Auth.User!.Name)</span>
+                <button class="btn-ghost" @onclick="Logout">Log out</button>
+            </div>
+        </div>
+    </nav>
+    <main class="page">@Body</main>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        Guard();
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) =>
+        _ = InvokeAsync(() =>
+        {
+            Guard();
+            StateHasChanged();
+        });
+
+    // Not logged in -> login page. Wrong role for this page -> your own home page.
+    private void Guard()
+    {
+        if (!Auth.IsLoggedIn) Nav.NavigateTo("/login");
+        else if (!Allowed()) Nav.NavigateTo(Auth.Home);
+    }
+
+    private bool Allowed()
+    {
+        if (Auth.User == null) return false;
+        var path = "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].ToLowerInvariant();
+        var needed = path.StartsWith("/trainer") ? Role.Trainer
+                   : path.StartsWith("/admin") ? Role.Admin
+                   : Role.Member;
+        return Auth.User.Role == needed;
+    }
+
+    private string Initials() =>
+        string.Concat(Auth.User!.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpper(p[0])));
+
+    private void Logout()
+    {
+        Auth.Logout();
+        Nav.NavigateTo("/login");
+    }
+
+    private (string Href, string Label)[] Links() => Auth.User!.Role switch
+    {
+        Role.Trainer => new[]
+        {
+            ("/trainer/classes", "My classes"), ("/trainer/requests", "Plan requests"), ("/trainer/plans", "Workout plans")
+        },
+        Role.Admin => new[]
+        {
+            ("/admin/users", "Users"), ("/admin/class-types", "Class types"), ("/admin/classes", "Classes"),
+            ("/admin/plans", "Workout plans"), ("/admin/stats", "Statistics")
+        },
+        _ => new[]
+        {
+            ("/classes", "Classes"), ("/my-bookings", "My bookings"), ("/membership", "Membership"),
+            ("/my-plan", "Workout plan")
+        }
+    };
+}

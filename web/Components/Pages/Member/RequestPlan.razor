@@ -1,0 +1,80 @@
+@page "/plan-request"
+@inject AuthState Auth
+@inject IGymService Gym
+@inject IUserService Users
+
+<h1>Request a workout plan</h1>
+
+<div class="cols">
+    @if (sent)
+    {
+        <div class="card">
+            <h2>Request sent</h2>
+            <p>Your request went to @trainerName. You get a notification when your plan is ready.</p>
+            <a class="btn" href="/my-plan">Go to My workout plan</a>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="grid2">
+                <div><label>Goal</label>
+                    <select @bind="goal">
+                        @foreach (var g in goals) { <option value="@g">@g</option> }
+                    </select></div>
+                <div><label>Experience level</label>
+                    <select @bind="level">
+                        <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
+                    </select></div>
+                <div><label>Training days per week</label>
+                    <select @bind="days">
+                        @for (var d = 1; d <= 7; d++) { <option value="@d">@d</option> }
+                    </select></div>
+            </div>
+            <label>Injuries or limitations (optional)</label>
+            <textarea placeholder="For example: sore left knee" @bind="limitations"></textarea>
+            <label>Anything else your trainer should know (optional)</label>
+            <textarea @bind="notes"></textarea>
+            @if (error != null) { <p class="error">@error</p> }
+            <p><button class="btn btn-dark" @onclick="Send">Send request</button></p>
+            <p class="muted small">You can have one request waiting at a time, and request a new plan once every 4 weeks.</p>
+        </div>
+    }
+    <div class="card soft">
+        <b>What happens next</b>
+        <ol class="steps">
+            <li><b>Your request is sent</b><br />It goes to the trainer with the fewest unfinished requests.</li>
+            <li><b>Your trainer makes the plan</b><br />It is based on your goals and needs.</li>
+            <li><b>You get a notification</b><br />In the app and by email when your plan is ready. Your old plan stays visible until then.</li>
+        </ol>
+    </div>
+</div>
+
+@code {
+    private readonly string[] goals = { "Build strength", "Lose weight", "Build muscle", "Improve mobility", "Improve endurance" };
+    private string goal = "Build strength";
+    private string level = "Beginner";
+    private int days = 3;
+    private string limitations = "";
+    private string notes = "";
+    private string? error;
+    private string trainerName = "your trainer";
+    private bool sent;
+
+    private async Task Send()
+    {
+        var me = Auth.User!;
+        var trainers = (await Users.GetUsersAsync()).Where(u => u.Role == Role.Trainer && u.Active).ToList();
+        var request = new PlanRequest
+        {
+            MemberId = me.Id, MemberName = me.Name, Goal = goal, Level = level,
+            DaysPerWeek = days, Limitations = limitations, Notes = notes
+        };
+        error = Gym.AddRequest(request, trainers);
+        if (error == null)
+        {
+            trainerName = request.TrainerName;
+            sent = true;
+        }
+    }
+}

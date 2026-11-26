@@ -1,0 +1,46 @@
+@page "/notifications"
+@inject AuthState Auth
+@inject IGymService Gym
+@inject NavigationManager Nav
+
+@{ var list = Gym.GetNotifications(Auth.User!.Id); }
+
+<div class="row between">
+    <div>
+        <h1>Notifications</h1>
+        <div class="muted">You also get these by email.</div>
+    </div>
+    <button class="btn btn-sm" @onclick="MarkAll">Mark all as read</button>
+</div>
+
+@foreach (var n in list)
+{
+    <div class="note-item @(n.Read ? "" : "unread")">
+        <div>
+            <b>@(n.Read ? "" : "● ")@n.Title</b>
+            <div>@n.Text</div>
+            @if (n.Link != null)
+            {
+                <button class="btn btn-sm" style="margin-top:6px" @onclick="() => Open(n)">View</button>
+            }
+        </div>
+        <span class="muted small">@When(n.Time)</span>
+    </div>
+}
+@if (list.Count == 0)
+{
+    <p class="muted">No notifications.</p>
+}
+
+@code {
+    private void MarkAll() => Gym.MarkAllRead(Auth.User!.Id);
+
+    private void Open(AppNotification n)
+    {
+        n.Read = true;
+        Nav.NavigateTo(n.Link!);
+    }
+
+    private static string When(DateTime t) =>
+        t.Date == DateTime.Today ? $"Today {t:HH:mm}" : t.ToString("d MMM HH:mm");
+}

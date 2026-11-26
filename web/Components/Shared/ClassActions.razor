@@ -1,0 +1,58 @@
+@inject AuthState Auth
+@inject IGymService Gym
+
+@{
+    var me = Auth.User!;
+    var st = Gym.StatusFor(me, Class);
+}
+@switch (st)
+{
+    case MemberStatus.Booked:
+    case MemberStatus.Attended:
+        <StatusTag Text="Booked" />
+        break;
+    case MemberStatus.None:
+        <button class="btn btn-dark btn-sm" @onclick="Book">Book</button>
+        break;
+    case MemberStatus.Full:
+        <button class="btn btn-dark btn-sm" @onclick="Join">Join waiting list</button>
+        break;
+    case MemberStatus.FullClosed:
+        <StatusTag Text="Full" />
+        break;
+    case MemberStatus.Waiting:
+        <StatusTag Text="@("Waiting #" + Gym.WaitingPosition(me.Id, Class) + " of " + Class.Waiting.Count)" />
+        break;
+    case MemberStatus.Cancelled:
+        <StatusTag Text="Cancelled" />
+        break;
+    case MemberStatus.Past:
+        <StatusTag Text="Closed" />
+        break;
+    case MemberStatus.TooFar:
+        <StatusTag Text="Not open yet" />
+        break;
+    case MemberStatus.MembershipEnded:
+        <StatusTag Text="Membership ended" />
+        break;
+    case MemberStatus.LimitReached:
+        <StatusTag Text="Weekly limit reached" />
+        break;
+}
+
+@code {
+    [Parameter, EditorRequired] public GymClass Class { get; set; } = null!;
+    [Parameter] public EventCallback<string> OnMessage { get; set; }
+
+    private async Task Book()
+    {
+        var err = Gym.Book(Auth.User!, Class.Id);
+        await OnMessage.InvokeAsync(err ?? $"Booked {Class.TypeName} on {Class.Start:ddd d MMM}.");
+    }
+
+    private async Task Join()
+    {
+        var err = Gym.JoinWaiting(Auth.User!, Class.Id);
+        await OnMessage.InvokeAsync(err ?? $"You are on the waiting list for {Class.TypeName}.");
+    }
+}

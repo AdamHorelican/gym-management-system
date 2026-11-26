@@ -1,0 +1,25 @@
+@page "/admin/plans/{Id:int}"
+@inject IGymService Gym
+@inject NavigationManager Nav
+
+<p><a href="/admin/plans">‹ Back to all workout plans</a></p>
+<h1>Edit workout plan</h1>
+
+@if (plan == null)
+{
+    <p>Plan not found.</p>
+}
+else
+{
+    <PlanEditor Plan="plan" Admin="true" OnSaved="Saved" OnDiscard="Back" />
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private WorkoutPlan? plan;
+
+    protected override void OnParametersSet() => plan = Gym.GetPlan(Id);
+
+    private void Saved(int id) => Nav.NavigateTo("/admin/plans");
+    private void Back() => Nav.NavigateTo("/admin/plans");
+}

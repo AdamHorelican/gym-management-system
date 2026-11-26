@@ -1,0 +1,20 @@
+<span class="tag @Css">@Text</span>
+
+@code {
+    [Parameter] public string Text { get; set; } = "";
+
+    // ok = teal (fine), info = blue (booked / waiting position), warn = orange (full / new),
+    // bad = red (cancelled / ended), mute = grey (closed / not available).
+    private string Css
+    {
+        get
+        {
+            var t = Text.ToLowerInvariant();
+            if (t.Contains('#') || t == "booked" || t.StartsWith("waiting")) return "info";
+            if (t.StartsWith("cancelled") || t.StartsWith("inactive") || t.Contains("ended") || t.StartsWith("missed")) return "bad";
+            if (t == "full" || t == "class full" || t == "new") return "warn";
+            if (t.StartsWith("closed") || t.StartsWith("weekly limit") || t.StartsWith("not open") || t == "not yet") return "mute";
+            return "ok"; // Attended, Active, Open, Ready, Plan ready, Checked in
+        }
+    }
+}

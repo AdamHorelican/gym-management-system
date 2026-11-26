@@ -1,0 +1,44 @@
+@page "/trainer/classes/{Id:int}/participants"
+@inject IGymService Gym
+
+@{ var c = Gym.GetClass(Id); }
+
+@if (c == null)
+{
+    <p>Class not found. <a href="/trainer/classes">Back to my classes</a></p>
+}
+else
+{
+    <p><a href="/trainer/classes">‹ Back to my classes</a></p>
+    <h1>@c.TypeName, @c.Start.ToString("ddd d MMM"), @($"{c.Start:HH:mm}–{c.End:HH:mm}")</h1>
+    <p class="muted">@c.Bookings.Count of @c.Capacity places booked | Checked in @c.Bookings.Count(b => b.CheckedIn) of @c.Bookings.Count</p>
+
+    <div class="cols">
+        <table>
+            <thead><tr><th>Member</th><th>Booked on</th><th>Check-in</th></tr></thead>
+            <tbody>
+            @foreach (var b in c.Bookings)
+            {
+                <tr>
+                    <td>@b.MemberName</td>
+                    <td>@b.BookedOn.ToString("d MMM, HH:mm")</td>
+                    <td><StatusTag Text="@(b.CheckedIn ? "Checked in" : "Not yet")" /></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        <div class="card">
+            <b>Waiting list</b>
+            <div class="muted small">@c.Waiting.Count members</div>
+            <ol>
+                @foreach (var w in c.Waiting) { <li>@w.MemberName</li> }
+            </ol>
+            <p class="muted small">The first person on the list gets an offer if a place becomes free.</p>
+        </div>
+    </div>
+    <p class="muted small">Members check in themselves in the app.</p>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+}

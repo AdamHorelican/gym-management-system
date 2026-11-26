@@ -1,0 +1,129 @@
+@inject AuthState Auth
+@inject IGymService Gym
+@inject IUserService Users
+
+@if (edit != null)
+{
+    <div class="card">
+        <div class="grid2">
+            <div>
+                <label>Member</label>
+                <select @bind="edit.MemberId" disabled="@(edit.RequestId != 0 || (edit.Id != 0 && !Admin))">
+                    <option value="0">Choose member</option>
+                    @foreach (var m in members) { <option value="@m.Id">@m.Name</option> }
+                </select>
+            </div>
+            <div><label>Plan title</label><input @bind="edit.Title" /></div>
+            <div><label>Goal</label><input @bind="edit.Goal" /></div>
+            @if (Admin)
+            {
+                <div>
+                    <label>Trainer</label>
+                    <select @bind="edit.TrainerId">
+                        @foreach (var t in trainers) { <option value="@t.Id">@t.Name</option> }
+                    </select>
+                </div>
+            }
+        </div>
+
+        <table style="margin-top:14px">
+            <thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Weight</th><th>Rest</th><th>Notes</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var ex in edit.Exercises)
+            {
+                <tr>
+                    <td><input @bind="ex.Name" /></td>
+                    <td><input type="number" class="num" @bind="ex.Sets" /></td>
+                    <td><input type="number" class="num" @bind="ex.Reps" /></td>
+                    <td><input class="short" @bind="ex.Weight" /></td>
+                    <td><input class="short" @bind="ex.Rest" /></td>
+                    <td><input @bind="ex.Notes" /></td>
+                    <td><button class="x" @onclick="() => edit.Exercises.Remove(ex)">×</button></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        <p><button class="btn btn-sm" @onclick="AddExercise">+ Add exercise</button></p>
+
+        <label>Notes for member</label>
+        <textarea @bind="edit.Notes"></textarea>
+
+        @if (error != null) { <p class="error">@error</p> }
+
+        <div class="row between" style="margin-top:12px">
+            @if (Admin)
+            {
+                <span></span>
+                <div>
+                    <button class="btn" @onclick="Discard">Discard</button>
+                    <button class="btn btn-dark" @onclick="() => SaveAs(null)">Save plan</button>
+                </div>
+            }
+            else
+            {
+                <span class="muted small">The member is notified when you finish the plan.</span>
+                <div>
+                    <button class="btn" @onclick="Discard">Discard</button>
+                    <button class="btn btn-dark" @onclick="() => SaveAs(null)">Finish plan</button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public WorkoutPlan Plan { get; set; } = null!;
+    [Parameter] public bool Admin { get; set; }
+    [Parameter] public EventCallback<int> OnSaved { get; set; }
+    [Parameter] public EventCallback OnDiscard { get; set; }
+
+    private WorkoutPlan? edit;
+    private WorkoutPlan? source;
+    private List<AppUser> members = new();
+    private List<AppUser> trainers = new();
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var all = await Users.GetUsersAsync();
+        members = all.Where(u => u.Role == Role.Member).ToList();
+        trainers = all.Where(u => u.Role == Role.Trainer).ToList();
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Work on a copy so "Discard" really discards.
+        if (!ReferenceEquals(Plan, source))
+        {
+            source = Plan;
+            edit = Plan.Clone();
+            error = null;
+        }
+    }
+
+    private void AddExercise() => edit!.Exercises.Add(new Exercise());
+
+    private async Task SaveAs(string? status)
+    {
+        if (edit == null) return;
+        if (edit.MemberId == 0) { error = "Choose a member."; return; }
+        if (string.IsNullOrWhiteSpace(edit.Title)) { error = "Give the plan a title."; return; }
+
+        if (status != null) edit.Status = status;
+        edit.MemberName = members.FirstOrDefault(m => m.Id == edit.MemberId)?.Name ?? edit.MemberName;
+        if (Admin)
+        {
+            edit.TrainerName = trainers.FirstOrDefault(t => t.Id == edit.TrainerId)?.Name ?? edit.TrainerName;
+        }
+        else
+        {
+            edit.TrainerId = Auth.User!.Id;
+            edit.TrainerName = Auth.User.Name;
+        }
+
+        Gym.SavePlan(edit);
+        await OnSaved.InvokeAsync(edit.Id);
+    }
+
+    private async Task Discard() => await OnDiscard.InvokeAsync();
+}

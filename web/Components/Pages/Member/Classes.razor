@@ -1,0 +1,98 @@
+@page "/classes"
+@inject AuthState Auth
+@inject IGymService Gym
+
+@{
+    var me = Auth.User!;
+    var all = Gym.GetClasses(weekStart, weekStart.AddDays(7))
+                .Where(c => c.Start.Date <= DateTime.Today.AddDays(Rules.BookingDaysAhead)).ToList();
+    var shown = all.Where(c => (typeFilter == 0 || c.TypeId == typeFilter)
+                               && (trainerFilter == "" || c.TrainerName == trainerFilter)).ToList();
+    var left = Rules.WeeklyLimit - Gym.ClassesUsed(me.Id, weekStart);
+}
+
+<div class="row between">
+    <h1>Upcoming classes</h1>
+    <div class="card mini">Classes left this week<br /><b>@left of @Rules.WeeklyLimit</b></div>
+</div>
+
+@if (left <= 0)
+{
+    <div class="banner warn">
+        <div class="banner-main">
+            <BannerIcon />
+            <div><b>You have used both classes this week.</b><br />
+                <span class="muted small">You can book again from Monday @weekStart.AddDays(7).ToString("d MMM").</span></div>
+        </div>
+    </div>
+}
+
+@if (message != null)
+{
+    <div class="banner"><div class="banner-main"><BannerIcon /><span>@message</span></div></div>
+}
+
+<div class="row filters">
+    <div>
+        <label>Class type</label>
+        <select @bind="typeFilter">
+            <option value="0">All types</option>
+            @foreach (var t in Gym.GetClassTypes().Where(x => x.Active))
+            {
+                <option value="@t.Id">@t.Name</option>
+            }
+        </select>
+    </div>
+    <div>
+        <label>Trainer</label>
+        <select @bind="trainerFilter">
+            <option value="">All trainers</option>
+            @foreach (var name in all.Select(c => c.TrainerName).Distinct())
+            {
+                <option value="@name">@name</option>
+            }
+        </select>
+    </div>
+    <div class="grow"></div>
+    <button class="btn btn-sm" disabled="@(weekStart <= Rules.WeekStart(DateTime.Today))" @onclick="() => Shift(-7)">‹</button>
+    <span>@weekStart.ToString("d MMM") – @weekStart.AddDays(6).ToString("d MMM yyyy")</span>
+    <button class="btn btn-sm" disabled="@(weekStart.AddDays(7) > DateTime.Today.AddDays(Rules.BookingDaysAhead))" @onclick="() => Shift(7)">›</button>
+</div>
+
+<table>
+    <thead><tr><th>Date</th><th>Time</th><th>Class</th><th>Trainer</th><th>Places</th><th>Action</th></tr></thead>
+    <tbody>
+    @foreach (var c in shown)
+    {
+        var st = Gym.StatusFor(me, c);
+        <tr>
+            <td>@c.Start.ToString("ddd d MMM")</td>
+            <td>@($"{c.Start:HH:mm}–{c.End:HH:mm}")</td>
+            <td><a href="/classes/@c.Id">@c.TypeName</a></td>
+            <td>@c.TrainerName</td>
+            <td>@Places(c, st)</td>
+            <td><ClassActions Class="c" OnMessage="Show" /></td>
+        </tr>
+    }
+    @if (shown.Count == 0)
+    {
+        <tr><td colspan="6" class="muted">No classes this week. Classes can be booked up to @Rules.BookingDaysAhead days ahead.</td></tr>
+    }
+    </tbody>
+</table>
+
+@code {
+    private DateTime weekStart = Rules.WeekStart(DateTime.Today);
+    private int typeFilter;
+    private string trainerFilter = "";
+    private string? message;
+
+    private void Shift(int days) { weekStart = weekStart.AddDays(days); message = null; }
+    private void Show(string text) => message = text;
+
+    private static string Places(GymClass c, MemberStatus st) => st switch
+    {
+        MemberStatus.Cancelled => "-",
+        _ => c.Open <= 0 ? "Full" : $"{c.Open} of {c.Capacity} free"
+    };
+}

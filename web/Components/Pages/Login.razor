@@ -1,0 +1,58 @@
+@page "/login"
+@layout EmptyLayout
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<div class="login-split">
+    <div class="login-hero">
+        <div class="brand">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FB923C" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6.5 7v10M3.5 9.5v5M17.5 7v10M20.5 9.5v5M6.5 12h11"></path></svg>
+            Gym Management
+        </div>
+        <div>
+            <h1>Book classes, follow your plan, keep your spot.</h1>
+            <p>One place for members, trainers and admins of the gym.</p>
+        </div>
+        <p class="hero-foot">Software Engineering 3rd semester, VIA University College</p>
+    </div>
+    <div class="login-side">
+        <div class="login-card">
+            <div>
+                <h2>Log in</h2>
+                <p class="muted">Welcome back. Use the details from your gym.</p>
+            </div>
+            <div>
+                <label>Email</label>
+                <input type="email" placeholder="name@example.com" @bind="email" @bind:event="oninput" />
+            </div>
+            <div>
+                <label>Password</label>
+                <input type="password" placeholder="Password" @bind="password" @bind:event="oninput" @onkeydown="OnKey" />
+            </div>
+            @if (error != null)
+            {
+                <p class="error">@error</p>
+            }
+            <button class="btn btn-dark wide" @onclick="Submit">Log in</button>
+            <p class="muted small center">No account yet? Accounts are created by an admin after payment at the gym.</p>
+            <p class="muted small center demo">Demo (any password): lars.hansen@example.com (member), mikkel.holm@example.com (trainer), admin@example.com (admin)</p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string email = "";
+    private string password = "";
+    private string? error;
+
+    private async Task OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await Submit();
+    }
+
+    private async Task Submit()
+    {
+        error = await Auth.LoginAsync(email, password);
+        if (error == null) Nav.NavigateTo(Auth.Home);
+    }
+}

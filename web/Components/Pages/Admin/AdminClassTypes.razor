@@ -1,0 +1,57 @@
+@page "/admin/class-types"
+@inject IGymService Gym
+
+<h1>Class types</h1>
+
+<div class="cols">
+    <table>
+        <thead><tr><th>Name</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+        @foreach (var t in Gym.GetClassTypes())
+        {
+            <tr>
+                <td>@t.Name</td>
+                <td>@t.Description</td>
+                <td><StatusTag Text="@(t.Active ? "Active" : "Inactive")" /></td>
+                <td>
+                    <button class="btn btn-sm" @onclick="() => Edit(t)">Edit</button>
+                    <button class="btn btn-sm" @onclick="() => Toggle(t)">@(t.Active ? "Deactivate" : "Activate")</button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+
+    <div class="card">
+        <b>@(form.Id == 0 ? "New" : "Edit") class type</b>
+        <label>Name</label>
+        <input @bind="form.Name" />
+        <label>Description</label>
+        <textarea @bind="form.Description"></textarea>
+        @if (error != null) { <p class="error">@error</p> }
+        <p>
+            @if (form.Id != 0) { <button class="btn" @onclick="Reset">Discard</button> }
+            <button class="btn btn-dark" @onclick="Save">Save class type</button>
+        </p>
+    </div>
+</div>
+
+@code {
+    private ClassType form = new();
+    private string? error;
+
+    private void Edit(ClassType t) =>
+        form = new ClassType { Id = t.Id, Name = t.Name, Description = t.Description, Active = t.Active };
+
+    private void Toggle(ClassType t) =>
+        Gym.SaveClassType(new ClassType { Id = t.Id, Name = t.Name, Description = t.Description, Active = !t.Active });
+
+    private void Reset() { form = new ClassType(); error = null; }
+
+    private void Save()
+    {
+        if (string.IsNullOrWhiteSpace(form.Name)) { error = "Give the class type a name."; return; }
+        Gym.SaveClassType(form);
+        Reset();
+    }
+}

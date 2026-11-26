@@ -1,0 +1,39 @@
+@page "/trainer/classes"
+@inject AuthState Auth
+@inject IGymService Gym
+
+@{ var list = Gym.GetClassesByTrainer(Auth.User!.Id).Where(c => c.Start >= DateTime.Today).ToList(); }
+
+<div class="row between">
+    <h1>My classes</h1>
+    <a class="btn btn-dark" href="/trainer/classes/new">+ Schedule class</a>
+</div>
+
+<table>
+    <thead><tr><th>Date</th><th>Time</th><th>Class</th><th>Booked</th><th>Waiting</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>
+    @foreach (var c in list)
+    {
+        <tr>
+            <td>@c.Start.ToString("ddd d MMM")</td>
+            <td>@($"{c.Start:HH:mm}–{c.End:HH:mm}")</td>
+            <td>@c.TypeName</td>
+            <td>@($"{c.Bookings.Count}/{c.Capacity}")</td>
+            <td>@c.Waiting.Count</td>
+            <td><StatusTag Text="@(c.Cancelled ? "Cancelled" : c.Open <= 0 ? "Full" : "Open")" /></td>
+            <td>
+                <a class="btn btn-sm" href="/trainer/classes/@c.Id/participants">Participants</a>
+                @if (!c.Cancelled)
+                {
+                    <a class="btn btn-sm" href="/trainer/classes/@c.Id/edit">Edit</a>
+                    <button class="btn btn-sm" @onclick="() => Gym.CancelClass(c.Id)">Cancel</button>
+                }
+            </td>
+        </tr>
+    }
+    @if (list.Count == 0)
+    {
+        <tr><td colspan="7" class="muted">You have no upcoming classes.</td></tr>
+    }
+    </tbody>
+</table>

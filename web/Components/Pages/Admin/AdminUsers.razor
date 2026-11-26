@@ -1,0 +1,67 @@
+@page "/admin/users"
+@inject IUserService Users
+
+<div class="row between">
+    <h1>Members and trainers</h1>
+    <a class="btn btn-dark" href="/admin/users/new?role=@(tab == Role.Trainer ? "trainer" : "member")">+ Create account</a>
+</div>
+
+<div class="row between">
+    <div class="tabs">
+        <button class="btn @(tab == Role.Member ? "on" : "")" @onclick="() => tab = Role.Member">Members</button>
+        <button class="btn @(tab == Role.Trainer ? "on" : "")" @onclick="() => tab = Role.Trainer">Trainers</button>
+    </div>
+    <input style="max-width:260px" placeholder="Search by name or email" @bind="search" @bind:event="oninput" />
+</div>
+
+@if (message != null)
+{
+    <p class="error">@message</p>
+}
+
+<table>
+    <thead>
+    <tr><th>Name</th><th>Email</th><th>Phone</th>@if (tab == Role.Member) { <th>Ends</th> }<th>Status</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+    @foreach (var u in Shown())
+    {
+        <tr>
+            <td>@u.Name</td>
+            <td>@u.Email</td>
+            <td>@u.Phone</td>
+            @if (tab == Role.Member) { <td>@(u.MembershipEnds?.ToString("d MMM yyyy") ?? "-")</td> }
+            <td><StatusTag Text="@StatusOf(u)" /></td>
+            <td>
+                <a class="btn btn-sm" href="/admin/users/@u.Id/edit">Edit</a>
+                <button class="btn btn-sm" @onclick="() => Toggle(u)">@(u.Active ? "Deactivate" : "Activate")</button>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@code {
+    private List<AppUser> users = new();
+    private Role tab = Role.Member;
+    private string search = "";
+    private string? message;
+
+    protected override async Task OnInitializedAsync() => users = await Users.GetUsersAsync();
+
+    private IEnumerable<AppUser> Shown() =>
+        users.Where(u => u.Role == tab
+                         && (search == "" || u.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+                                          || u.Email.Contains(search, StringComparison.OrdinalIgnoreCase)));
+
+    private static string StatusOf(AppUser u) =>
+        !u.Active ? "Inactive"
+        : u.Role == Role.Member && u.MembershipEnds is DateTime e && e < DateTime.Today ? "Ended"
+        : "Active";
+
+    private async Task Toggle(AppUser u)
+    {
+        message = await Users.SetActiveAsync(u.Id, !u.Active);
+        users = await Users.GetUsersAsync();
+    }
+}
